@@ -1417,14 +1417,12 @@ dependencies = [
 name = "shai"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-openai",
  "clap",
  "colored",
  "dialoguer",
  "dotenvy",
  "serde",
- "thiserror 2.0.18",
  "tokio",
 ]
 

@@ -1,10 +1,11 @@
 mod api;
-mod errors;
+mod domain;
 mod executor;
 mod ui;
 
 use api::GrokClient;
 use clap::Parser;
+use domain::Prompt;
 use dotenvy::dotenv;
 use ui::InteractionResult;
 
@@ -16,21 +17,29 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() {
     dotenv().ok();
     let args = Args::parse();
 
     if args.prompt.is_empty() {
         println!("Please provide a description of what you want to do.");
-        return Ok(());
+        return;
     }
 
-    let initial_prompt = args.prompt.join(" ");
+    let initial_prompt_str = args.prompt.join(" ");
+    let initial_prompt = match Prompt::new(initial_prompt_str) {
+        Ok(p) => p,
+        Err(e) => {
+            ui::display_error(&e);
+            return;
+        }
+    };
+
     let client = match GrokClient::new() {
         Ok(c) => c,
         Err(e) => {
             ui::display_error(&e.to_string());
-            return Ok(());
+            return;
         }
     };
 
@@ -39,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
         Ok(cmd) => cmd,
         Err(e) => {
             ui::display_error(&e.to_string());
-            return Ok(());
+            return;
         }
     };
 
@@ -63,7 +72,10 @@ async fn main() -> anyhow::Result<()> {
             }
             Ok(InteractionResult::Refine(feedback)) => {
                 ui::display_info("Refining...");
-                match client.refine_command(&initial_prompt, &current_command, &feedback).await {
+                match client
+                    .refine_command(&initial_prompt, &current_command, &feedback)
+                    .await
+                {
                     Ok(new_cmd) => current_command = new_cmd,
                     Err(e) => ui::display_error(&e.to_string()),
                 }
@@ -78,6 +90,4 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
-
-    Ok(())
 }

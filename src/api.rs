@@ -1,22 +1,127 @@
-use crate::errors::{Result, ShaiError};
+use crate::domain::{Prompt, ShellCommand};
 use async_openai::{
+    Client,
     config::OpenAIConfig,
     types::{
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
         CreateChatCompletionRequestArgs,
     },
-    Client,
 };
 use std::env;
+use std::fmt;
+
+pub enum NewClientError {
+    EnvVarNotSet(String),
+}
+
+impl fmt::Debug for NewClientError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EnvVarNotSet(var) => write!(f, "Environment variable not set: {}", var),
+        }
+    }
+}
+
+impl fmt::Display for NewClientError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EnvVarNotSet(var) => write!(f, "Environment variable not set: {}", var),
+        }
+    }
+}
+
+pub enum SuggestionError {
+    ApiError(String),
+    NoResponse,
+    EmptyResponse,
+    InvalidCommand(String),
+}
+
+impl fmt::Debug for SuggestionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ApiError(e) => write!(f, "API error: {}", e),
+            Self::NoResponse => write!(f, "No response from API"),
+            Self::EmptyResponse => write!(f, "Empty response from API"),
+            Self::InvalidCommand(e) => write!(f, "Invalid command suggested: {}", e),
+        }
+    }
+}
+
+impl fmt::Display for SuggestionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ApiError(e) => write!(f, "API error: {}", e),
+            Self::NoResponse => write!(f, "No response from API"),
+            Self::EmptyResponse => write!(f, "Empty response from API"),
+            Self::InvalidCommand(e) => write!(f, "Invalid command suggested: {}", e),
+        }
+    }
+}
+
+pub enum ExplanationError {
+    ApiError(String),
+    NoResponse,
+    EmptyResponse,
+}
+
+impl fmt::Debug for ExplanationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ApiError(e) => write!(f, "API error: {}", e),
+            Self::NoResponse => write!(f, "No response from API"),
+            Self::EmptyResponse => write!(f, "Empty response from API"),
+        }
+    }
+}
+
+impl fmt::Display for ExplanationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ApiError(e) => write!(f, "API error: {}", e),
+            Self::NoResponse => write!(f, "No response from API"),
+            Self::EmptyResponse => write!(f, "Empty response from API"),
+        }
+    }
+}
+
+pub enum RefineError {
+    ApiError(String),
+    NoResponse,
+    EmptyResponse,
+    InvalidCommand(String),
+}
+
+impl fmt::Debug for RefineError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ApiError(e) => write!(f, "API error: {}", e),
+            Self::NoResponse => write!(f, "No response from API"),
+            Self::EmptyResponse => write!(f, "Empty response from API"),
+            Self::InvalidCommand(e) => write!(f, "Invalid command suggested: {}", e),
+        }
+    }
+}
+
+impl fmt::Display for RefineError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ApiError(e) => write!(f, "API error: {}", e),
+            Self::NoResponse => write!(f, "No response from API"),
+            Self::EmptyResponse => write!(f, "Empty response from API"),
+            Self::InvalidCommand(e) => write!(f, "Invalid command suggested: {}", e),
+        }
+    }
+}
 
 pub struct GrokClient {
     client: Client<OpenAIConfig>,
 }
 
 impl GrokClient {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> Result<Self, NewClientError> {
         let api_key = env::var("XAI_API_KEY")
-            .map_err(|_| ShaiError::EnvError("XAI_API_KEY environment variable not set".to_string()))?;
+            .map_err(|_| NewClientError::EnvVarNotSet("XAI_API_KEY".to_string()))?;
 
         let config = OpenAIConfig::new()
             .with_api_key(api_key)
@@ -27,99 +132,134 @@ impl GrokClient {
         Ok(Self { client })
     }
 
-    pub async fn get_command_suggestion(&self, prompt: &str) -> Result<String> {
+    pub async fn get_command_suggestion(
+        &self,
+        prompt: &Prompt,
+    ) -> Result<ShellCommand, SuggestionError> {
         let request = CreateChatCompletionRequestArgs::default()
             .model("grok-build-0.1")
             .messages([
                 ChatCompletionRequestSystemMessageArgs::default()
                     .content("You are a shell command assistant. Your goal is to translate natural language into a single, valid shell command. Return ONLY the command itself, without any markdown formatting, backticks, or explanation. If multiple commands are needed, use pipes or subshells. Target shell is bash/zsh.")
                     .build()
-                    .map_err(|e| ShaiError::ApiError(e.to_string()))?
+                    .map_err(|e| SuggestionError::ApiError(e.to_string()))?
                     .into(),
                 ChatCompletionRequestUserMessageArgs::default()
-                    .content(prompt)
+                    .content(prompt.as_str())
                     .build()
-                    .map_err(|e| ShaiError::ApiError(e.to_string()))?
+                    .map_err(|e| SuggestionError::ApiError(e.to_string()))?
                     .into(),
             ])
             .build()
-            .map_err(|e| ShaiError::ApiError(e.to_string()))?;
+            .map_err(|e| SuggestionError::ApiError(e.to_string()))?;
 
-        let response = self.client.chat().create(request).await
-            .map_err(|e| ShaiError::ApiError(e.to_string()))?;
+        let response = self
+            .client
+            .chat()
+            .create(request)
+            .await
+            .map_err(|e| SuggestionError::ApiError(e.to_string()))?;
 
-        let choice = response.choices.first()
-            .ok_or_else(|| ShaiError::ApiError("No response from API".to_string()))?;
+        let choice = response
+            .choices
+            .first()
+            .ok_or(SuggestionError::NoResponse)?;
 
-        let command = choice.message.content.as_ref()
-            .ok_or_else(|| ShaiError::ApiError("Empty response from API".to_string()))?
+        let command_str = choice
+            .message
+            .content
+            .as_ref()
+            .ok_or(SuggestionError::EmptyResponse)?
             .trim()
             .to_string();
 
-        Ok(command)
+        ShellCommand::new(command_str).map_err(SuggestionError::InvalidCommand)
     }
 
-    pub async fn get_explanation(&self, command: &str) -> Result<String> {
+    pub async fn get_explanation(
+        &self,
+        command: &ShellCommand,
+    ) -> Result<String, ExplanationError> {
         let request = CreateChatCompletionRequestArgs::default()
             .model("grok-build-0.1")
             .messages([
                 ChatCompletionRequestSystemMessageArgs::default()
                     .content("Explain the following shell command concisely and clearly. Break down what each part and flag does. The explanation will be displayed to a human user in a terminal, format accordingly: use only plain text, no markdown or other formatting")
                     .build()
-                    .map_err(|e| ShaiError::ApiError(e.to_string()))?
+                    .map_err(|e| ExplanationError::ApiError(e.to_string()))?
                     .into(),
                 ChatCompletionRequestUserMessageArgs::default()
-                    .content(command)
+                    .content(command.as_str())
                     .build()
-                    .map_err(|e| ShaiError::ApiError(e.to_string()))?
+                    .map_err(|e| ExplanationError::ApiError(e.to_string()))?
                     .into(),
             ])
             .build()
-            .map_err(|e| ShaiError::ApiError(e.to_string()))?;
+            .map_err(|e| ExplanationError::ApiError(e.to_string()))?;
 
-        let response = self.client.chat().create(request).await
-            .map_err(|e| ShaiError::ApiError(e.to_string()))?;
+        let response = self
+            .client
+            .chat()
+            .create(request)
+            .await
+            .map_err(|e| ExplanationError::ApiError(e.to_string()))?;
 
-        let choice = response.choices.first()
-            .ok_or_else(|| ShaiError::ApiError("No response from API".to_string()))?;
+        let choice = response
+            .choices
+            .first()
+            .ok_or(ExplanationError::NoResponse)?;
 
-        let explanation = choice.message.content.as_ref()
-            .ok_or_else(|| ShaiError::ApiError("Empty response from API".to_string()))?
+        let explanation = choice
+            .message
+            .content
+            .as_ref()
+            .ok_or(ExplanationError::EmptyResponse)?
             .trim()
             .to_string();
 
         Ok(explanation)
     }
 
-    pub async fn refine_command(&self, original_prompt: &str, original_command: &str, feedback: &str) -> Result<String> {
+    pub async fn refine_command(
+        &self,
+        original_prompt: &Prompt,
+        original_command: &ShellCommand,
+        feedback: &str,
+    ) -> Result<ShellCommand, RefineError> {
         let request = CreateChatCompletionRequestArgs::default()
             .model("grok-build-0.1")
             .messages([
                 ChatCompletionRequestSystemMessageArgs::default()
                     .content("You are a shell command assistant. The user wants to refine a previously suggested command. Return ONLY the new command itself, without any markdown formatting, backticks, or explanation.")
                     .build()
-                    .map_err(|e| ShaiError::ApiError(e.to_string()))?
+                    .map_err(|e| RefineError::ApiError(e.to_string()))?
                     .into(),
                 ChatCompletionRequestUserMessageArgs::default()
                     .content(format!("Original request: {}\nOriginal command: {}\nFeedback: {}", original_prompt, original_command, feedback))
                     .build()
-                    .map_err(|e| ShaiError::ApiError(e.to_string()))?
+                    .map_err(|e| RefineError::ApiError(e.to_string()))?
                     .into(),
             ])
             .build()
-            .map_err(|e| ShaiError::ApiError(e.to_string()))?;
+            .map_err(|e| RefineError::ApiError(e.to_string()))?;
 
-        let response = self.client.chat().create(request).await
-            .map_err(|e| ShaiError::ApiError(e.to_string()))?;
+        let response = self
+            .client
+            .chat()
+            .create(request)
+            .await
+            .map_err(|e| RefineError::ApiError(e.to_string()))?;
 
-        let choice = response.choices.first()
-            .ok_or_else(|| ShaiError::ApiError("No response from API".to_string()))?;
+        let choice = response.choices.first().ok_or(RefineError::NoResponse)?;
 
-        let command = choice.message.content.as_ref()
-            .ok_or_else(|| ShaiError::ApiError("Empty response from API".to_string()))?
+        let command_str = choice
+            .message
+            .content
+            .as_ref()
+            .ok_or(RefineError::EmptyResponse)?
             .trim()
             .to_string();
 
-        Ok(command)
+        ShellCommand::new(command_str).map_err(RefineError::InvalidCommand)
     }
 }
