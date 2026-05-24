@@ -17,11 +17,16 @@ cargo install --path .
 
 ## Configuration
 
-Set your xAI API key as an environment variable or in a `.env` file:
+`shai` requires an xAI API key. You can provide it in two ways:
 
-```bash
-export XAI_API_KEY="your-api-key-here"
-```
+1. **Environment Variable**: Set the `XAI_API_KEY` environment variable.
+   ```bash
+   export XAI_API_KEY="your-api-key-here"
+   ```
+
+2. **Configuration File**: If the environment variable is not set, `shai` will check for a configuration file at `~/.config/shai/config.toml` (on Linux/macOS) or `%AppData%\shai\config.toml` (on Windows).
+
+   If no API key is found, `shai` will interactively prompt you for it and save it to the configuration file for future use.
 
 ## Usage
 
