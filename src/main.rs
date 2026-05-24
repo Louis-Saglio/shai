@@ -1,0 +1,83 @@
+mod api;
+mod errors;
+mod executor;
+mod ui;
+
+use api::GrokClient;
+use clap::Parser;
+use dotenvy::dotenv;
+use ui::InteractionResult;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// The natural language description of what you want to do
+    prompt: Vec<String>,
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    dotenv().ok();
+    let args = Args::parse();
+
+    if args.prompt.is_empty() {
+        println!("Please provide a description of what you want to do.");
+        return Ok(());
+    }
+
+    let initial_prompt = args.prompt.join(" ");
+    let client = match GrokClient::new() {
+        Ok(c) => c,
+        Err(e) => {
+            ui::display_error(&e.to_string());
+            return Ok(());
+        }
+    };
+
+    ui::display_info("Thinking...");
+    let mut current_command = match client.get_command_suggestion(&initial_prompt).await {
+        Ok(cmd) => cmd,
+        Err(e) => {
+            ui::display_error(&e.to_string());
+            return Ok(());
+        }
+    };
+
+    loop {
+        ui::display_suggestion(&current_command);
+
+        match ui::get_user_choice() {
+            Ok(InteractionResult::Run) => {
+                ui::display_info("Executing...");
+                if let Err(e) = executor::execute_command(&current_command) {
+                    ui::display_error(&e.to_string());
+                }
+                break;
+            }
+            Ok(InteractionResult::Explain) => {
+                ui::display_info("Getting explanation...");
+                match client.get_explanation(&current_command).await {
+                    Ok(explanation) => ui::display_explanation(&explanation),
+                    Err(e) => ui::display_error(&e.to_string()),
+                }
+            }
+            Ok(InteractionResult::Refine(feedback)) => {
+                ui::display_info("Refining...");
+                match client.refine_command(&initial_prompt, &current_command, &feedback).await {
+                    Ok(new_cmd) => current_command = new_cmd,
+                    Err(e) => ui::display_error(&e.to_string()),
+                }
+            }
+            Ok(InteractionResult::Cancel) => {
+                ui::display_info("Canceled.");
+                break;
+            }
+            Err(e) => {
+                ui::display_error(&e.to_string());
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
