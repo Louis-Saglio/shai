@@ -1,4 +1,5 @@
 mod api;
+mod config;
 mod domain;
 mod executor;
 mod ui;
@@ -6,7 +7,6 @@ mod ui;
 use api::GrokClient;
 use clap::Parser;
 use domain::Prompt;
-use dotenvy::dotenv;
 use ui::InteractionResult;
 
 #[derive(Parser, Debug)]
@@ -18,7 +18,6 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
-    dotenv().ok();
     let args = Args::parse();
 
     if args.prompt.is_empty() {
@@ -35,19 +34,40 @@ async fn main() {
         }
     };
 
-    let client = match GrokClient::new() {
-        Ok(c) => c,
-        Err(e) => {
-            ui::display_error(&e.to_string());
-            return;
+    let api_key = if let Ok(key) = std::env::var("XAI_API_KEY") {
+        key
+    } else {
+        let mut config = config::Config::load().unwrap_or_else(|e| {
+            ui::display_error(format!("Failed to load config: {}", e));
+            config::Config::default()
+        });
+
+        if config.api_key.is_empty() {
+            match ui::prompt_for_api_key() {
+                Ok(key) => {
+                    config.api_key = key.clone();
+                    if let Err(e) = config.save() {
+                        ui::display_error(format!("Failed to save config: {}", e));
+                    }
+                    key
+                }
+                Err(e) => {
+                    ui::display_error(e);
+                    return;
+                }
+            }
+        } else {
+            config.api_key
         }
     };
+
+    let client = GrokClient::new(api_key);
 
     ui::display_info("Thinking...");
     let mut current_command = match client.get_command_suggestion(&initial_prompt).await {
         Ok(cmd) => cmd,
         Err(e) => {
-            ui::display_error(&e.to_string());
+            ui::display_error(e);
             return;
         }
     };
@@ -59,7 +79,7 @@ async fn main() {
             Ok(InteractionResult::Run) => {
                 ui::display_info("Executing...");
                 if let Err(e) = executor::execute_command(&current_command) {
-                    ui::display_error(&e.to_string());
+                    ui::display_error(e);
                 }
                 break;
             }
@@ -67,7 +87,7 @@ async fn main() {
                 ui::display_info("Getting explanation...");
                 match client.get_explanation(&current_command).await {
                     Ok(explanation) => ui::display_explanation(&explanation),
-                    Err(e) => ui::display_error(&e.to_string()),
+                    Err(e) => ui::display_error(e),
                 }
             }
             Ok(InteractionResult::Refine(feedback)) => {
@@ -77,7 +97,7 @@ async fn main() {
                     .await
                 {
                     Ok(new_cmd) => current_command = new_cmd,
-                    Err(e) => ui::display_error(&e.to_string()),
+                    Err(e) => ui::display_error(e),
                 }
             }
             Ok(InteractionResult::Cancel) => {
@@ -85,7 +105,7 @@ async fn main() {
                 break;
             }
             Err(e) => {
-                ui::display_error(&e.to_string());
+                ui::display_error(e);
                 break;
             }
         }

@@ -1,4 +1,4 @@
-use crate::domain::{Prompt, ShellCommand};
+use crate::domain::{Prompt, ShellCommand, ShellCommandError};
 use async_openai::{
     Client,
     config::OpenAIConfig,
@@ -7,34 +7,13 @@ use async_openai::{
         CreateChatCompletionRequestArgs,
     },
 };
-use std::env;
 use std::fmt;
-
-pub enum NewClientError {
-    EnvVarNotSet(String),
-}
-
-impl fmt::Debug for NewClientError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::EnvVarNotSet(var) => write!(f, "Environment variable not set: {}", var),
-        }
-    }
-}
-
-impl fmt::Display for NewClientError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::EnvVarNotSet(var) => write!(f, "Environment variable not set: {}", var),
-        }
-    }
-}
 
 pub enum SuggestionError {
     ApiError(String),
     NoResponse,
     EmptyResponse,
-    InvalidCommand(String),
+    InvalidCommand(ShellCommandError),
 }
 
 impl fmt::Debug for SuggestionError {
@@ -89,7 +68,7 @@ pub enum RefineError {
     ApiError(String),
     NoResponse,
     EmptyResponse,
-    InvalidCommand(String),
+    InvalidCommand(ShellCommandError),
 }
 
 impl fmt::Debug for RefineError {
@@ -119,17 +98,14 @@ pub struct GrokClient {
 }
 
 impl GrokClient {
-    pub fn new() -> Result<Self, NewClientError> {
-        let api_key = env::var("XAI_API_KEY")
-            .map_err(|_| NewClientError::EnvVarNotSet("XAI_API_KEY".to_string()))?;
-
+    pub fn new(api_key: String) -> Self {
         let config = OpenAIConfig::new()
             .with_api_key(api_key)
             .with_api_base("https://api.x.ai/v1");
 
         let client = Client::with_config(config);
 
-        Ok(Self { client })
+        Self { client }
     }
 
     pub async fn get_command_suggestion(

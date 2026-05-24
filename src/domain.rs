@@ -3,10 +3,30 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub struct Prompt(String);
 
+pub enum PromptError {
+    Empty,
+}
+
+impl fmt::Debug for PromptError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => write!(f, "Prompt cannot be empty"),
+        }
+    }
+}
+
+impl fmt::Display for PromptError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => write!(f, "Prompt cannot be empty"),
+        }
+    }
+}
+
 impl Prompt {
-    pub fn new(content: String) -> Result<Self, String> {
+    pub fn new(content: String) -> Result<Self, PromptError> {
         if content.trim().is_empty() {
-            Err("Prompt cannot be empty".to_string())
+            Err(PromptError::Empty)
         } else {
             Ok(Self(content))
         }
@@ -26,10 +46,30 @@ impl fmt::Display for Prompt {
 #[derive(Debug, Clone)]
 pub struct ShellCommand(String);
 
+pub enum ShellCommandError {
+    Empty,
+}
+
+impl fmt::Debug for ShellCommandError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => write!(f, "Command cannot be empty"),
+        }
+    }
+}
+
+impl fmt::Display for ShellCommandError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => write!(f, "Command cannot be empty"),
+        }
+    }
+}
+
 impl ShellCommand {
-    pub fn new(command: String) -> Result<Self, String> {
+    pub fn new(command: String) -> Result<Self, ShellCommandError> {
         if command.trim().is_empty() {
-            Err("Command cannot be empty".to_string())
+            Err(ShellCommandError::Empty)
         } else {
             Ok(Self(command))
         }
