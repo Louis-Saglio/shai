@@ -34,34 +34,11 @@ async fn main() {
         }
     };
 
-    let api_key = if let Ok(key) = std::env::var("XAI_API_KEY") {
-        key
-    } else {
-        let mut config = config::Config::load().unwrap_or_else(|e| {
-            ui::display_error(format!("Failed to load config: {}", e));
-            config::Config::default()
-        });
+    let config = config::Config::load().unwrap();
+    // todo: handle cases where config is invalid
+    // todo: when config does not exist, prompt user for the input necessary to create it
 
-        if config.api_key.is_empty() {
-            match ui::prompt_for_api_key() {
-                Ok(key) => {
-                    config.api_key = key.clone();
-                    if let Err(e) = config.save() {
-                        ui::display_error(format!("Failed to save config: {}", e));
-                    }
-                    key
-                }
-                Err(e) => {
-                    ui::display_error(e);
-                    return;
-                }
-            }
-        } else {
-            config.api_key
-        }
-    };
-
-    let client = GrokClient::new(api_key);
+    let client = GrokClient::new(config);
 
     ui::display_info("Thinking...");
     let mut current_command = match client.get_command_suggestion(&initial_prompt).await {

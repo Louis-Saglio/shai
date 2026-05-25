@@ -6,8 +6,11 @@ use std::path::PathBuf;
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Config {
     pub api_key: String,
+    pub api_url: String,
+    pub model: String,
 }
 
+#[derive(Debug)]
 pub enum ConfigError {
     Path(String),
     Read(String),
