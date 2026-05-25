@@ -7,14 +7,6 @@ pub enum ExecutionError {
     CommandFailed(String),
 }
 
-impl fmt::Debug for ExecutionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::CommandFailed(e) => write!(f, "Command execution failed: {}", e),
-        }
-    }
-}
-
 impl fmt::Display for ExecutionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

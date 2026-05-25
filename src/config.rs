@@ -16,18 +16,6 @@ pub enum ConfigError {
     Serialize(String),
 }
 
-impl fmt::Debug for ConfigError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Path(e) => write!(f, "Path error: {}", e),
-            Self::Read(e) => write!(f, "Read error: {}", e),
-            Self::Write(e) => write!(f, "Write error: {}", e),
-            Self::Parse(e) => write!(f, "Parse error: {}", e),
-            Self::Serialize(e) => write!(f, "Serialize error: {}", e),
-        }
-    }
-}
-
 impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -7,14 +7,6 @@ pub enum PromptError {
     Empty,
 }
 
-impl fmt::Debug for PromptError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Empty => write!(f, "Prompt cannot be empty"),
-        }
-    }
-}
-
 impl fmt::Display for PromptError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -48,14 +40,6 @@ pub struct ShellCommand(String);
 
 pub enum ShellCommandError {
     Empty,
-}
-
-impl fmt::Debug for ShellCommandError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Empty => write!(f, "Command cannot be empty"),
-        }
-    }
 }
 
 impl fmt::Display for ShellCommandError {

@@ -13,14 +13,6 @@ pub enum ChoiceError {
     InputError(String),
 }
 
-impl fmt::Debug for ChoiceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InputError(e) => write!(f, "Input error: {}", e),
-        }
-    }
-}
-
 impl fmt::Display for ChoiceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -16,17 +16,6 @@ pub enum SuggestionError {
     InvalidCommand(ShellCommandError),
 }
 
-impl fmt::Debug for SuggestionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ApiError(e) => write!(f, "API error: {}", e),
-            Self::NoResponse => write!(f, "No response from API"),
-            Self::EmptyResponse => write!(f, "Empty response from API"),
-            Self::InvalidCommand(e) => write!(f, "Invalid command suggested: {}", e),
-        }
-    }
-}
-
 impl fmt::Display for SuggestionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -44,16 +33,6 @@ pub enum ExplanationError {
     EmptyResponse,
 }
 
-impl fmt::Debug for ExplanationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ApiError(e) => write!(f, "API error: {}", e),
-            Self::NoResponse => write!(f, "No response from API"),
-            Self::EmptyResponse => write!(f, "Empty response from API"),
-        }
-    }
-}
-
 impl fmt::Display for ExplanationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -69,17 +48,6 @@ pub enum RefineError {
     NoResponse,
     EmptyResponse,
     InvalidCommand(ShellCommandError),
-}
-
-impl fmt::Debug for RefineError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ApiError(e) => write!(f, "API error: {}", e),
-            Self::NoResponse => write!(f, "No response from API"),
-            Self::EmptyResponse => write!(f, "Empty response from API"),
-            Self::InvalidCommand(e) => write!(f, "Invalid command suggested: {}", e),
-        }
-    }
 }
 
 impl fmt::Display for RefineError {
