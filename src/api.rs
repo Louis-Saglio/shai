@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::domain::{Prompt, ShellCommand, ShellCommandError};
 use async_openai::{
     Client,
@@ -8,7 +9,6 @@ use async_openai::{
     },
 };
 use std::fmt;
-use crate::config::Config;
 
 pub enum SuggestionError {
     ApiError(String),
@@ -69,10 +69,15 @@ pub struct GrokClient {
 
 impl GrokClient {
     pub fn new(config: Config) -> Self {
-        let client = Client::with_config(OpenAIConfig::new()
-            .with_api_key(config.api_key)
-            .with_api_base(config.api_url));
-        Self { client, model: config.model }
+        let client = Client::with_config(
+            OpenAIConfig::new()
+                .with_api_key(config.api_key)
+                .with_api_base(config.api_url),
+        );
+        Self {
+            client,
+            model: config.model,
+        }
     }
 
     pub async fn get_command_suggestion(

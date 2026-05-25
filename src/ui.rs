@@ -1,5 +1,6 @@
+use crate::config::Config;
 use colored::*;
-use dialoguer::{Input, Password, Select, theme::ColorfulTheme};
+use dialoguer::{Confirm, Input, Password, Select, theme::ColorfulTheme};
 use std::fmt;
 
 pub enum InteractionResult {
@@ -75,12 +76,9 @@ impl fmt::Display for PromptError {
     }
 }
 
-pub fn prompt_for_api_key() -> Result<String, PromptError> {
-    println!("\n{}", "X.AI API Key not found.".bright_yellow());
-    println!("Please enter your API key (it will be saved for future use):");
-
+fn prompt_for_api_key() -> Result<String, PromptError> {
     let api_key: String = Password::with_theme(&ColorfulTheme::default())
-        .with_prompt("API Key")
+        .with_prompt("X.AI API Key")
         .validate_with(|input: &String| -> Result<(), &str> {
             if input.trim().is_empty() {
                 Err("API key cannot be empty")
@@ -92,6 +90,39 @@ pub fn prompt_for_api_key() -> Result<String, PromptError> {
         .map_err(|e| PromptError::InputError(e.to_string()))?;
 
     Ok(api_key.trim().to_string())
+}
+
+pub fn prompt_configuration() -> Result<Config, PromptError> {
+    println!("\n{}", "Shai Configuration".bright_blue().bold());
+    println!("Please enter the following details to set up Shai:");
+
+    let api_key = prompt_for_api_key()?;
+
+    let api_url: String = Input::with_theme(&ColorfulTheme::default())
+        .with_prompt("API URL")
+        .default("https://api.x.ai/v1".to_string())
+        .interact_text()
+        .map_err(|e| PromptError::InputError(e.to_string()))?;
+
+    let model: String = Input::with_theme(&ColorfulTheme::default())
+        .with_prompt("Model")
+        .default("grok-4.20-0309-non-reasoning".to_string())
+        .interact_text()
+        .map_err(|e| PromptError::InputError(e.to_string()))?;
+
+    Ok(Config {
+        api_key,
+        api_url,
+        model,
+    })
+}
+
+pub fn confirm(prompt: &str) -> bool {
+    Confirm::with_theme(&ColorfulTheme::default())
+        .with_prompt(prompt)
+        .default(true)
+        .interact()
+        .unwrap_or(false)
 }
 
 pub fn display_error<T: fmt::Display>(error: T) {

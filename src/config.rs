@@ -17,6 +17,7 @@ pub enum ConfigError {
     Write(String),
     Parse(String),
     Serialize(String),
+    Validation(String),
 }
 
 impl fmt::Display for ConfigError {
@@ -27,6 +28,7 @@ impl fmt::Display for ConfigError {
             Self::Write(e) => write!(f, "Write error: {}", e),
             Self::Parse(e) => write!(f, "Parse error: {}", e),
             Self::Serialize(e) => write!(f, "Serialize error: {}", e),
+            Self::Validation(e) => write!(f, "Validation error: {}", e),
         }
     }
 }
@@ -35,13 +37,38 @@ impl Config {
     pub fn load() -> Result<Self, ConfigError> {
         let config_path = Self::get_config_path()?;
         if !config_path.exists() {
-            return Ok(Config::default());
+            return Err(ConfigError::Path(format!(
+                "Config file not found at {}. Please create it or run the application setup.",
+                config_path.display()
+            )));
         }
         let content = fs::read_to_string(&config_path)
             .map_err(|e| ConfigError::Read(format!("{}: {}", config_path.display(), e)))?;
         let config: Config = toml::from_str(&content)
             .map_err(|e| ConfigError::Parse(format!("{}: {}", config_path.display(), e)))?;
+
+        config.validate()?;
+
         Ok(config)
+    }
+
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        if self.api_key.trim().is_empty() {
+            return Err(ConfigError::Validation(
+                "api_key is missing or empty".to_string(),
+            ));
+        }
+        if self.api_url.trim().is_empty() {
+            return Err(ConfigError::Validation(
+                "api_url is missing or empty".to_string(),
+            ));
+        }
+        if self.model.trim().is_empty() {
+            return Err(ConfigError::Validation(
+                "model is missing or empty".to_string(),
+            ));
+        }
+        Ok(())
     }
 
     pub fn save(&self) -> Result<(), ConfigError> {

@@ -34,9 +34,33 @@ async fn main() {
         }
     };
 
-    let config = config::Config::load().unwrap();
-    // todo: handle cases where config is invalid
-    // todo: when config does not exist, prompt user for the input necessary to create it
+    let config = match config::Config::load() {
+        Ok(c) => c,
+        Err(e) => {
+            ui::display_error(e);
+            if ui::confirm(
+                "Configuration is missing or invalid. Would you like to configure it now?",
+            ) {
+                match ui::prompt_configuration() {
+                    Ok(new_config) => {
+                        if let Err(save_err) = new_config.save() {
+                            ui::display_error(format!(
+                                "Failed to save configuration: {}",
+                                save_err
+                            ));
+                        }
+                        new_config
+                    }
+                    Err(prompt_err) => {
+                        ui::display_error(prompt_err);
+                        return;
+                    }
+                }
+            } else {
+                return;
+            }
+        }
+    };
 
     let client = GrokClient::new(config);
 
