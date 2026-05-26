@@ -4,10 +4,11 @@
 
 ## Features
 
-- **Natural Language to Shell**: Converts English descriptions to valid shell commands using xAI Grok.
+- **Natural Language to Shell**: Converts English descriptions to valid shell commands using any OpenAI-compatible API (defaults to xAI Grok).
 - **Interactive Flow**: Choose to Run, Explain, Refine, or Cancel suggestions.
 - **Shell Support**: Detects and uses your current shell (bash, zsh, etc.).
 - **Concise Explanations**: Understand what the suggested command does before executing it.
+- **Customizable**: Configure your preferred API URL and model.
 
 ## Installation
 
@@ -17,23 +18,35 @@ cargo install --path .
 
 ## Configuration
 
-`shai` requires an xAI API key. You can provide it in two ways:
+`shai` requires an API key from an OpenAI-compatible provider (e.g., xAI, OpenAI, etc.).
 
-1. **Environment Variable**: Set the `XAI_API_KEY` environment variable.
-   ```bash
-   export XAI_API_KEY="your-api-key-here"
-   ```
+### Interactive Setup
 
-2. **Configuration File**: If the environment variable is not set, `shai` will check for a configuration file at `~/.config/shai/config.toml` (on Linux/macOS) or `%AppData%\shai\config.toml` (on Windows).
+The easiest way to configure `shai` is to run it for the first time. If no configuration is found, `shai` will interactively prompt you for:
+- **API Key**
+- **API URL** (defaults to `https://api.x.ai/v1`)
+- **Model** (defaults to `grok-4.20-0309-non-reasoning`)
 
-   If no API key is found, `shai` will interactively prompt you for it and save it to the configuration file for future use.
+### Configuration File
+
+The configuration is stored in a TOML file at:
+- **Linux/macOS**: `~/.config/shai/config.toml`
+- **Windows**: `%AppData%\shai\config.toml`
+
+Example `config.toml`:
+
+```toml
+api_key = "your-api-key-here"
+api_url = "https://api.x.ai/v1"
+model = "grok-4.20-0309-non-reasoning"
+```
 
 ## Usage
 
 ```bash
-shai "find all pdf files larger than 10MB"
-shai "list all docker containers and show their resource usage"
-shai "replace all occurrences of 'foo' with 'bar' in all .txt files"
+shai find all pdf files larger than 10MB
+shai list all docker containers and show their resource usage
+shai replace all occurrences of 'foo' with 'bar' in all .txt files
 ```
 
 ## Interactive Options
