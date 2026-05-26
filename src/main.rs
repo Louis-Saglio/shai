@@ -62,7 +62,13 @@ async fn main() {
         }
     };
 
-    let client = GrokClient::new(config);
+    let client = match GrokClient::new(config) {
+        Ok(c) => c,
+        Err(e) => {
+            ui::display_error(e);
+            return;
+        }
+    };
 
     ui::display_info("Thinking...");
     let mut current_command = match client.get_command_suggestion(&initial_prompt).await {
@@ -91,8 +97,15 @@ async fn main() {
                     Err(e) => ui::display_error(e),
                 }
             }
-            Ok(InteractionResult::Refine(feedback)) => {
+            Ok(InteractionResult::Refine(feedback_str)) => {
                 ui::display_info("Refining...");
+                let feedback = match domain::Feedback::new(feedback_str) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        ui::display_error(e);
+                        continue;
+                    }
+                };
                 match client
                     .refine_command(&initial_prompt, &current_command, &feedback)
                     .await
