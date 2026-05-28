@@ -38,25 +38,9 @@ impl fmt::Display for Prompt {
 #[derive(Debug, Clone)]
 pub struct ShellCommand(String);
 
-pub enum ShellCommandError {
-    Empty,
-}
-
-impl fmt::Display for ShellCommandError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Empty => write!(f, "Command cannot be empty"),
-        }
-    }
-}
-
 impl ShellCommand {
-    pub fn new(command: String) -> Result<Self, ShellCommandError> {
-        if command.trim().is_empty() {
-            Err(ShellCommandError::Empty)
-        } else {
-            Ok(Self(command))
-        }
+    pub fn new(command: String) -> Self {
+        Self(command)
     }
 
     pub fn as_str(&self) -> &str {
@@ -73,25 +57,9 @@ impl fmt::Display for ShellCommand {
 #[derive(Debug, Clone)]
 pub struct Model(String);
 
-pub enum ModelError {
-    Empty,
-}
-
-impl fmt::Display for ModelError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Empty => write!(f, "Model name cannot be empty"),
-        }
-    }
-}
-
 impl Model {
-    pub fn new(name: String) -> Result<Self, ModelError> {
-        if name.trim().is_empty() {
-            Err(ModelError::Empty)
-        } else {
-            Ok(Self(name))
-        }
+    pub fn new(name: String) -> Self {
+        Self(name)
     }
 
     pub fn as_str(&self) -> &str {

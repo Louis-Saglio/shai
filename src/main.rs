@@ -4,7 +4,7 @@ mod domain;
 mod executor;
 mod ui;
 
-use api::GrokClient;
+use api::OpenAIClient;
 use clap::Parser;
 use domain::Prompt;
 use ui::InteractionResult;
@@ -62,13 +62,7 @@ async fn main() {
         }
     };
 
-    let client = match GrokClient::new(config) {
-        Ok(c) => c,
-        Err(e) => {
-            ui::display_error(e);
-            return;
-        }
-    };
+    let client = OpenAIClient::new(config);
 
     ui::display_info("Thinking...");
     let mut current_command = match client.get_command_suggestion(&initial_prompt).await {

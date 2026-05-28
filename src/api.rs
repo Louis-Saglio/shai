@@ -1,103 +1,59 @@
 use crate::config::Config;
-use crate::domain::{Feedback, Model, ModelError, Prompt, ShellCommand, ShellCommandError};
+use crate::domain::{Feedback, Model, Prompt, ShellCommand};
 use async_openai::{
-    Client,
     config::OpenAIConfig,
     types::chat::{
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
         CreateChatCompletionRequestArgs, ResponseFormat,
     },
+    Client,
 };
 use serde::Deserialize;
 use std::fmt;
 
 pub enum SuggestionError {
-    RequestBuild(&'static str, String),
     ApiCall(String),
-    NoResponse,
-    EmptyResponse,
-    JsonParse { error: String, content: String },
-    InvalidCommand(ShellCommandError),
+    BadResponse,
 }
 
 impl fmt::Display for SuggestionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::RequestBuild(step, e) => write!(f, "Failed to build request at {}: {}", step, e),
             Self::ApiCall(e) => write!(f, "API call failed: {}", e),
-            Self::NoResponse => write!(f, "No response from API"),
-            Self::EmptyResponse => write!(f, "Empty response from API"),
-            Self::JsonParse { error, content } => {
-                write!(
-                    f,
-                    "Failed to parse JSON response: {}. Content: {}",
-                    error, content
-                )
-            }
-            Self::InvalidCommand(e) => write!(f, "Invalid command suggested: {}", e),
+            Self::BadResponse => write!(f, "The API did not respond a usable response"),
         }
     }
 }
 
 pub enum ExplanationError {
-    RequestBuild(&'static str, String),
     ApiCall(String),
-    NoResponse,
-    EmptyResponse,
+    BadResponse,
 }
 
 impl fmt::Display for ExplanationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::RequestBuild(step, e) => write!(f, "Failed to build request at {}: {}", step, e),
             Self::ApiCall(e) => write!(f, "API call failed: {}", e),
-            Self::NoResponse => write!(f, "No response from API"),
-            Self::EmptyResponse => write!(f, "Empty response from API"),
+            Self::BadResponse => write!(f, "The API did not respond a usable response"),
         }
     }
 }
 
 pub enum RefineError {
-    RequestBuild(&'static str, String),
     ApiCall(String),
-    NoResponse,
-    EmptyResponse,
-    JsonParse { error: String, content: String },
-    InvalidCommand(ShellCommandError),
+    BadResponse,
 }
 
 impl fmt::Display for RefineError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::RequestBuild(step, e) => write!(f, "Failed to build request at {}: {}", step, e),
             Self::ApiCall(e) => write!(f, "API call failed: {}", e),
-            Self::NoResponse => write!(f, "No response from API"),
-            Self::EmptyResponse => write!(f, "Empty response from API"),
-            Self::JsonParse { error, content } => {
-                write!(
-                    f,
-                    "Failed to parse JSON response: {}. Content: {}",
-                    error, content
-                )
-            }
-            Self::InvalidCommand(e) => write!(f, "Invalid command suggested: {}", e),
+            Self::BadResponse => write!(f, "The API did not respond a usable response"),
         }
     }
 }
 
-pub enum GrokClientError {
-    InvalidModel(ModelError),
-}
-
-impl fmt::Display for GrokClientError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidModel(e) => write!(f, "Invalid model: {}", e),
-        }
-    }
-}
-
-pub struct GrokClient {
+pub struct OpenAIClient {
     client: Client<OpenAIConfig>,
     model: Model,
 }
@@ -107,15 +63,15 @@ struct CommandResponse {
     command: String,
 }
 
-impl GrokClient {
-    pub fn new(config: Config) -> Result<Self, GrokClientError> {
+impl OpenAIClient {
+    pub fn new(config: Config) -> Self {
         let client = Client::with_config(
             OpenAIConfig::new()
                 .with_api_key(config.api_key)
                 .with_api_base(config.api_url),
         );
-        let model = Model::new(config.model).map_err(GrokClientError::InvalidModel)?;
-        Ok(Self { client, model })
+        let model = Model::new(config.model);
+        Self { client, model }
     }
 
     pub async fn get_command_suggestion(
@@ -129,16 +85,16 @@ impl GrokClient {
                 ChatCompletionRequestSystemMessageArgs::default()
                     .content("You are a shell command assistant. Your goal is to translate natural language into a single, valid shell command. Return a JSON object with a single key 'command'. Target shell is bash/zsh.")
                     .build()
-                    .map_err(|e| SuggestionError::RequestBuild("system message", e.to_string()))?
+                    .unwrap() // Can err only if a required field is missing. The only required field is content which is defined just above
                     .into(),
                 ChatCompletionRequestUserMessageArgs::default()
                     .content(prompt.as_str())
                     .build()
-                    .map_err(|e| SuggestionError::RequestBuild("user message", e.to_string()))?
+                    .unwrap() // Can err only if a required field is missing. The only required field is content which is defined just above
                     .into(),
             ])
             .build()
-            .map_err(|e| SuggestionError::RequestBuild("request", e.to_string()))?;
+            .unwrap(); // Can err only if a required field is missing. The only required fields are messages and model which are defined just above
 
         let response = self
             .client
@@ -150,21 +106,18 @@ impl GrokClient {
         let choice = response
             .choices
             .first()
-            .ok_or(SuggestionError::NoResponse)?;
+            .ok_or(SuggestionError::BadResponse)?;
 
         let content = choice
             .message
             .content
             .as_ref()
-            .ok_or(SuggestionError::EmptyResponse)?;
+            .ok_or(SuggestionError::BadResponse)?;
 
         let command_response: CommandResponse =
-            serde_json::from_str(content).map_err(|e| SuggestionError::JsonParse {
-                error: e.to_string(),
-                content: content.clone(),
-            })?;
+            serde_json::from_str(content).map_err(|_| SuggestionError::BadResponse)?;
 
-        ShellCommand::new(command_response.command).map_err(SuggestionError::InvalidCommand)
+        Ok(ShellCommand::new(command_response.command))
     }
 
     pub async fn get_explanation(
@@ -177,16 +130,16 @@ impl GrokClient {
                 ChatCompletionRequestSystemMessageArgs::default()
                     .content("Explain the following shell command concisely and clearly. Break down what each part and flag does. The explanation will be displayed to a human user in a terminal, format accordingly: use only plain text, no markdown or other formatting")
                     .build()
-                    .map_err(|e| ExplanationError::RequestBuild("system message", e.to_string()))?
+                    .unwrap()  // Can err only if a required field is missing. The only required field is content which is defined just above
                     .into(),
                 ChatCompletionRequestUserMessageArgs::default()
                     .content(command.as_str())
                     .build()
-                    .map_err(|e| ExplanationError::RequestBuild("user message", e.to_string()))?
+                    .unwrap() // Can err only if a required field is missing. The only required field is content which is defined just above
                     .into(),
             ])
             .build()
-            .map_err(|e| ExplanationError::RequestBuild("request", e.to_string()))?;
+            .unwrap(); // Can err only if a required field is missing. The only required fields are messages and model which are defined just above
 
         let response = self
             .client
@@ -198,13 +151,13 @@ impl GrokClient {
         let choice = response
             .choices
             .first()
-            .ok_or(ExplanationError::NoResponse)?;
+            .ok_or(ExplanationError::BadResponse)?;
 
         let explanation = choice
             .message
             .content
             .as_ref()
-            .ok_or(ExplanationError::EmptyResponse)?
+            .ok_or(ExplanationError::BadResponse)?
             .trim()
             .to_string();
 
@@ -224,16 +177,16 @@ impl GrokClient {
                 ChatCompletionRequestSystemMessageArgs::default()
                     .content("You are a shell command assistant. The user wants to refine a previously suggested command. Return a JSON object with a single key 'command'. Target shell is bash/zsh.")
                     .build()
-                    .map_err(|e| RefineError::RequestBuild("system message", e.to_string()))?
+                    .unwrap() // Can err only if a required field is missing. The only required field is content which is defined just above
                     .into(),
                 ChatCompletionRequestUserMessageArgs::default()
                     .content(format!("Original request: {}\nOriginal command: {}\nFeedback: {}", original_prompt, original_command, feedback))
                     .build()
-                    .map_err(|e| RefineError::RequestBuild("user message", e.to_string()))?
+                    .unwrap() // Can err only if a required field is missing. The only required field is content which is defined just above
                     .into(),
             ])
             .build()
-            .map_err(|e| RefineError::RequestBuild("request", e.to_string()))?;
+            .unwrap(); // Can err only if a required field is missing. The only required fields are messages and model which are defined just above
 
         let response = self
             .client
@@ -242,20 +195,17 @@ impl GrokClient {
             .await
             .map_err(|e| RefineError::ApiCall(e.to_string()))?;
 
-        let choice = response.choices.first().ok_or(RefineError::NoResponse)?;
+        let choice = response.choices.first().ok_or(RefineError::BadResponse)?;
 
         let content = choice
             .message
             .content
             .as_ref()
-            .ok_or(RefineError::EmptyResponse)?;
+            .ok_or(RefineError::BadResponse)?;
 
         let command_response: CommandResponse =
-            serde_json::from_str(content).map_err(|e| RefineError::JsonParse {
-                error: e.to_string(),
-                content: content.clone(),
-            })?;
+            serde_json::from_str(content).map_err(|_| RefineError::BadResponse)?;
 
-        ShellCommand::new(command_response.command).map_err(RefineError::InvalidCommand)
+        Ok(ShellCommand::new(command_response.command))
     }
 }
