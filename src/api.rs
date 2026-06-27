@@ -1,12 +1,12 @@
 use crate::config::Config;
 use crate::domain::{Feedback, Model, Prompt, ShellCommand};
 use async_openai::{
+    Client,
     config::OpenAIConfig,
     types::chat::{
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
         CreateChatCompletionRequestArgs, ResponseFormat,
     },
-    Client,
 };
 use serde::Deserialize;
 use std::fmt;

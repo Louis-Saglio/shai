@@ -1,13 +1,9 @@
-mod api;
-mod config;
-mod domain;
-mod executor;
-mod ui;
-
-use api::OpenAIClient;
 use clap::Parser;
-use domain::Prompt;
-use ui::InteractionResult;
+use shai::api::OpenAIClient;
+use shai::config;
+use shai::domain::{self, Prompt};
+use shai::executor;
+use shai::ui::{self, InteractionResult};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -79,6 +75,9 @@ async fn main() {
         match ui::get_user_choice() {
             Ok(InteractionResult::Run) => {
                 ui::display_info("Executing...");
+                if let Err(e) = executor::append_to_history(&current_command) {
+                    ui::display_error(e);
+                }
                 if let Err(e) = executor::execute_command(&current_command) {
                     ui::display_error(e);
                 }
