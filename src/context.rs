@@ -9,7 +9,6 @@ const UNKNOWN: &str = "unknown";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SystemContext {
     pub os: String,
-    pub arch: String,
     pub shell: String,
 }
 
@@ -18,17 +17,16 @@ impl SystemContext {
     pub fn detect() -> Self {
         Self {
             os: detect_os(),
-            arch: env::consts::ARCH.to_string(),
             shell: shell_name(env::var("SHELL").ok().as_deref()),
         }
     }
 
-    /// Line describing the OS, architecture and shell, e.g.
-    /// `User environment: OS = Arch Linux (x86_64), shell = zsh.`
+    /// Line describing the OS and shell, e.g.
+    /// `User environment: OS = Arch Linux, shell = zsh.`
     pub fn environment_line(&self) -> String {
         format!(
-            "User environment: OS = {} ({}), shell = {}.",
-            self.os, self.arch, self.shell
+            "User environment: OS = {}, shell = {}.",
+            self.os, self.shell
         )
     }
 
@@ -61,12 +59,12 @@ pub fn parse_os_release(content: &str) -> Option<String> {
     })
 }
 
-/// Basename of the `$SHELL` path, defaulting to "sh" when unset or empty.
+/// Basename of the `$SHELL` path, defaulting to "unknown" when unset or empty.
 pub fn shell_name(shell_path: Option<&str>) -> String {
     shell_path
         .and_then(|path| path.trim().rsplit('/').next())
         .filter(|name| !name.is_empty())
-        .unwrap_or("sh")
+        .unwrap_or(UNKNOWN)
         .to_string()
 }
 
@@ -112,26 +110,25 @@ mod tests {
     }
 
     #[test]
-    fn shell_name_falls_back_to_sh() {
-        assert_eq!(shell_name(None), "sh");
-        assert_eq!(shell_name(Some("")), "sh");
-        assert_eq!(shell_name(Some("/usr/bin/")), "sh");
+    fn shell_name_falls_back_to_unknown() {
+        assert_eq!(shell_name(None), "unknown");
+        assert_eq!(shell_name(Some("")), "unknown");
+        assert_eq!(shell_name(Some("/usr/bin/")), "unknown");
     }
 
     #[test]
     fn environment_line_and_prompt_suffix() {
         let ctx = SystemContext {
             os: "Arch Linux".to_string(),
-            arch: "x86_64".to_string(),
             shell: "zsh".to_string(),
         };
         assert_eq!(
             ctx.environment_line(),
-            "User environment: OS = Arch Linux (x86_64), shell = zsh."
+            "User environment: OS = Arch Linux, shell = zsh."
         );
         assert_eq!(
             ctx.prompt_suffix(),
-            "Target shell: zsh. User environment: OS = Arch Linux (x86_64), shell = zsh."
+            "Target shell: zsh. User environment: OS = Arch Linux, shell = zsh."
         );
     }
 
@@ -139,7 +136,6 @@ mod tests {
     fn detect_never_returns_empty_fields() {
         let ctx = SystemContext::detect();
         assert!(!ctx.os.is_empty());
-        assert!(!ctx.arch.is_empty());
         assert!(!ctx.shell.is_empty());
     }
 }
