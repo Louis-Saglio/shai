@@ -13,6 +13,10 @@
 
 ## Installation
 
+Download the archive for your platform from the [latest release](https://github.com/Louis-Saglio/shai/releases/latest) (Linux x86_64, macOS Apple Silicon and Intel, Windows x86_64), extract it and put `shai` in your `PATH`.
+
+Or build from source:
+
 ```bash
 cargo install --path .
 ```
