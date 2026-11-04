@@ -7,6 +7,7 @@
 - **Natural Language to Shell**: Converts English descriptions to valid shell commands using any OpenAI-compatible API (defaults to xAI Grok).
 - **Interactive Flow**: Choose to Run, Explain, Refine, or Cancel suggestions.
 - **Shell Support**: Detects and uses your current shell (bash, zsh, etc.).
+- **Environment Aware**: Tells the model your OS and shell (e.g. `Arch Linux, zsh`) so suggestions and explanations fit your system (GNU vs BSD flags, package manager, ...). Nothing else is sent besides your request: no working directory, username, environment variables or history.
 - **Concise Explanations**: Understand what the suggested command does before executing it.
 - **Customizable**: Configure your preferred API URL and model.
 

@@ -1,6 +1,7 @@
 use clap::Parser;
 use shai::api::OpenAIClient;
 use shai::config;
+use shai::context::SystemContext;
 use shai::domain::{self, Prompt};
 use shai::executor;
 use shai::ui::{self, InteractionResult};
@@ -58,7 +59,8 @@ async fn main() {
         }
     };
 
-    let client = OpenAIClient::new(config);
+    // Detected once per run and shared by the suggest, explain and refine requests
+    let client = OpenAIClient::new(config, SystemContext::detect());
 
     ui::display_info("Thinking...");
     let mut current_command = match client.get_command_suggestion(&initial_prompt).await {

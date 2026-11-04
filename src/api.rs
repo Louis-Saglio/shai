@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::context::SystemContext;
 use crate::domain::{Feedback, Model, Prompt, ShellCommand};
 use async_openai::{
     Client,
@@ -56,6 +57,7 @@ impl fmt::Display for RefineError {
 pub struct OpenAIClient {
     client: Client<OpenAIConfig>,
     model: Model,
+    context: SystemContext,
 }
 
 #[derive(Deserialize)]
@@ -64,14 +66,18 @@ struct CommandResponse {
 }
 
 impl OpenAIClient {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config, context: SystemContext) -> Self {
         let client = Client::with_config(
             OpenAIConfig::new()
                 .with_api_key(config.api_key)
                 .with_api_base(config.api_url),
         );
         let model = Model::new(config.model);
-        Self { client, model }
+        Self {
+            client,
+            model,
+            context,
+        }
     }
 
     pub async fn get_command_suggestion(
@@ -83,7 +89,7 @@ impl OpenAIClient {
             .response_format(ResponseFormat::JsonObject)
             .messages([
                 ChatCompletionRequestSystemMessageArgs::default()
-                    .content("You are a shell command assistant. Your goal is to translate natural language into a single, valid shell command. Return a JSON object with a single key 'command'. Target shell is bash/zsh.")
+                    .content(format!("You are a shell command assistant. Your goal is to translate natural language into a single, valid shell command. Return a JSON object with a single key 'command'. {}", self.context.prompt_suffix()))
                     .build()
                     .unwrap() // Can err only if a required field is missing. The only required field is content which is defined just above
                     .into(),
@@ -128,7 +134,7 @@ impl OpenAIClient {
             .model(self.model.as_str())
             .messages([
                 ChatCompletionRequestSystemMessageArgs::default()
-                    .content("Explain the following shell command concisely and clearly. Break down what each part and flag does. The explanation will be displayed to a human user in a terminal, format accordingly: use only plain text, no markdown or other formatting")
+                    .content(format!("Explain the following shell command concisely and clearly. Break down what each part and flag does. The explanation will be displayed to a human user in a terminal, format accordingly: use only plain text, no markdown or other formatting. {}", self.context.environment_line()))
                     .build()
                     .unwrap()  // Can err only if a required field is missing. The only required field is content which is defined just above
                     .into(),
@@ -175,7 +181,7 @@ impl OpenAIClient {
             .response_format(ResponseFormat::JsonObject)
             .messages([
                 ChatCompletionRequestSystemMessageArgs::default()
-                    .content("You are a shell command assistant. The user wants to refine a previously suggested command. Return a JSON object with a single key 'command'. Target shell is bash/zsh.")
+                    .content(format!("You are a shell command assistant. The user wants to refine a previously suggested command. Return a JSON object with a single key 'command'. {}", self.context.prompt_suffix()))
                     .build()
                     .unwrap() // Can err only if a required field is missing. The only required field is content which is defined just above
                     .into(),
